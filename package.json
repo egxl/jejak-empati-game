@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "deploy:pages": "wrangler pages deploy ../public --cwd pages --project-name jejak-empati --branch main",
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply jejak-empati-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply jejak-empati-db --remote",

@@ -2,6 +2,7 @@
   "name": "jejak-empati-game",
   "main": "src/index.ts",
   "compatibility_date": "2025-11-01",
+  "workers_dev": false,
   "assets": { "directory": "./public", "binding": "ASSETS" },
   "d1_databases": [
     {
