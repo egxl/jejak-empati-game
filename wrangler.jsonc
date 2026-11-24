@@ -1,0 +1,17 @@
+{
+  "name": "jejak-empati-game",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-11-01",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jejak-empati-db",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "PRESENCE_ROOM", "class_name": "PresenceRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PresenceRoom"] }]
+}
