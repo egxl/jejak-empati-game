@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "jejak-empati-db",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "8c91bbe1-c42c-4f44-b812-4a207bf75c7a"
     }
   ],
   "durable_objects": {
