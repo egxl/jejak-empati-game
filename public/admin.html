@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#141936">
+  <title>Fasilitator · Jejak Empati</title>
+  <style>
+    :root { color-scheme: dark; --bg: #10142b; --panel: #181e3d; --line: #343b61; --ink: #f3f4fb; --muted: #b6bcda; --kunyit: #f0b43a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, sans-serif; }
+    main { width: min(1120px, 100% - 32px); margin: 0 auto; padding: 40px 0; }
+    header, .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    h1, h2 { line-height: 1.2; }
+    h1 { margin: 8px 0 16px; font: clamp(2rem, 5vw, 3.2rem)/1.1 Georgia, serif; }
+    h2 { margin: 0 0 16px; font-size: 1.35rem; }
+    h3 { margin: 0; font-size: 1rem; }
+    a, strong { color: var(--kunyit); }
+    p { margin: 0 0 12px; }
+    label { display: block; margin-bottom: 6px; }
+    button, input { font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); }
+    button { cursor: pointer; font-weight: 700; background: var(--kunyit); color: #221704; }
+    button.secondary { background: var(--panel); color: var(--ink); }
+    button:disabled { opacity: .55; cursor: default; }
+    input { background: var(--bg); color: var(--ink); width: min(100%, 27rem); }
+    :focus-visible { outline: 2px solid var(--kunyit); outline-offset: 3px; }
+    section, form { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-top: 18px; }
+    .counts, .breakdowns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; margin: 0 0 20px; }
+    .counts div { background: var(--bg); padding: 12px 14px; border-radius: 8px; }
+    dt, .muted { color: var(--muted); }
+    dd { margin: 0; color: var(--kunyit); font-size: 1.55rem; font-weight: 750; }
+    ul { padding-left: 20px; margin: 6px 0 0; }
+    .table-wrap { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: .9rem; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); white-space: nowrap; }
+    td { overflow-wrap: anywhere; }
+    .reflection { min-width: 220px; white-space: pre-wrap; }
+    #status { margin: 12px 0 0; color: var(--muted); }
+    @media (max-width: 540px) { main { padding-top: 24px; } section, form { padding: 14px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <a href="/">Jejak Empati</a>
+      <button id="logout" class="secondary" type="button" hidden>Keluar</button>
+    </header>
+    <h1>Dashboard Fasilitator</h1>
+    <form id="login">
+      <label for="token">Token fasilitator (ADMIN_TOKEN)</label>
+      <div class="actions">
+        <input id="token" type="password" autocomplete="off" required>
+        <button id="login-button">Buka dashboard</button>
+      </div>
+    </form>
+    <p id="status" role="status"></p>
+    <div id="dashboard" hidden>
+      <section aria-labelledby="checkin-heading">
+        <div class="actions">
+          <h2 id="checkin-heading">Refleksi check-in</h2>
+          <button type="button" data-export="checkins.csv">Unduh checkins.csv</button>
+        </div>
+        <dl class="counts" id="counts"></dl>
+        <div class="breakdowns">
+          <div><h3>Perasaan</h3><ul id="feelings"></ul></div>
+          <div><h3>Tantangan tersulit</h3><ul id="challenges"></ul></div>
+        </div>
+        <p class="muted" id="checkin-count"></p>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Tabel check-in">
+          <table>
+            <thead><tr><th scope="col">Nama</th><th scope="col">Sudah mencoba</th><th scope="col">Perasaan</th><th scope="col">Tersulit</th><th scope="col">Pertanyaan dan refleksi</th><th scope="col">Waktu</th></tr></thead>
+            <tbody id="checkins"></tbody>
+          </table>
+        </div>
+      </section>
+      <section aria-labelledby="run-heading">
+        <div class="actions">
+          <h2 id="run-heading">Papan skor</h2>
+          <button type="button" data-export="runs.csv">Unduh runs.csv</button>
+        </div>
+        <p class="muted" id="run-count"></p>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Tabel papan skor">
+          <table>
+            <thead><tr><th scope="col">Posisi</th><th scope="col">Nama</th><th scope="col">Skor</th><th scope="col">XP</th><th scope="col">Pangkat</th><th scope="col">Status</th><th scope="col">Diperbarui</th></tr></thead>
+            <tbody id="runs"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script type="module">
+    const $ = id => document.getElementById(id);
+    const storageKey = 'je-admin-token';
+    let token = '';
+    try { token = sessionStorage.getItem(storageKey) || ''; } catch {}
+    const date = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+    const number = new Intl.NumberFormat('id-ID');
+
+    async function api(path, secret = token) {
+      const res = await fetch('/api/admin/' + path, {
+        headers: { Authorization: 'Bearer ' + secret },
+        cache: 'no-store'
+      });
+      if (res.status === 401) throw new Error('Token fasilitator tidak valid.');
+      if (res.status === 503) throw new Error('Token fasilitator belum dikonfigurasi di server.');
+      if (!res.ok) throw new Error('Data tidak dapat dimuat.');
+      return res;
+    }
+
+    function showTable(id, rows, columnCount, reflectionColumn = -1) {
+      const body = $(id);
+      body.replaceChildren();
+      if (!rows.length) {
+        const cell = body.insertRow().insertCell();
+        cell.colSpan = columnCount;
+        cell.textContent = 'Belum ada data.';
+      }
+      for (const row of rows) {
+        const tr = body.insertRow();
+        row.forEach((value, i) => {
+          const cell = tr.insertCell();
+          cell.textContent = value === '' ? '—' : value;
+          if (i === reflectionColumn) cell.className = 'reflection';
+        });
+      }
+    }
+
+    function showBreakdown(id, rows) {
+      $(id).replaceChildren(...(rows.length ? rows : [{ label: 'Belum ada jawaban', count: 0 }]).map(row => {
+        const li = document.createElement('li');
+        li.textContent = row.count ? row.label + ' · ' + number.format(row.count) : row.label;
+        return li;
+      }));
+    }
+
+    function render({ stats, checkins, runs }) {
+      $('counts').replaceChildren(...[
+        ['Check-in', stats.checkins.total],
+        ['Refleksi tertulis', stats.checkins.reflections],
+        ['Permainan selesai', stats.runs.completed]
+      ].map(([label, count]) => {
+        const group = document.createElement('div');
+        const term = document.createElement('dt');
+        const value = document.createElement('dd');
+        term.textContent = label;
+        value.textContent = number.format(count);
+        group.append(term, value);
+        return group;
+      }));
+      showBreakdown('feelings', stats.feelings);
+      showBreakdown('challenges', stats.challenges);
+      $('checkin-count').textContent = checkins.length < stats.checkins.total ? 'Menampilkan ' + checkins.length + ' check-in terbaru.' : '';
+      $('run-count').textContent = number.format(stats.runs.total) + ' permainan tercatat' +
+        (runs.length < stats.runs.total ? ' · ' + runs.length + ' skor teratas ditampilkan' : '');
+      showTable('checkins', checkins.map(c => [c.nama, c.sudah_mencoba, c.perasaan, c.tersulit,
+        [c.pertanyaan_refleksi, c.refleksi].filter(Boolean).join('\n'), date.format(c.created_at)]), 6, 4);
+      showTable('runs', runs.map((r, i) => [i + 1, r.name, number.format(r.score), number.format(r.xp),
+        r.rank, r.done ? 'Selesai' : 'Sedang main', date.format(r.updated_at)]), 7);
+    }
+
+    async function login(secret) {
+      if (!secret) return;
+      $('login-button').disabled = true;
+      $('status').textContent = 'Memuat data…';
+      try {
+        render(await (await api('summary', secret)).json());
+        token = secret;
+        try { sessionStorage.setItem(storageKey, token); } catch {}
+        $('token').value = '';
+        $('login').hidden = true;
+        $('logout').hidden = false;
+        $('dashboard').hidden = false;
+        $('status').textContent = '';
+      } catch (error) {
+        $('status').textContent = error.message;
+      } finally {
+        $('login-button').disabled = false;
+      }
+    }
+
+    $('login').addEventListener('submit', event => {
+      event.preventDefault();
+      login($('token').value.trim());
+    });
+    $('logout').addEventListener('click', () => {
+      token = '';
+      try { sessionStorage.removeItem(storageKey); } catch {}
+      $('dashboard').hidden = true;
+      $('logout').hidden = true;
+      $('login').hidden = false;
+      $('status').textContent = '';
+      $('token').focus();
+    });
+    document.querySelectorAll('[data-export]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const filename = button.dataset.export;
+        const secret = token;
+        button.disabled = true;
+        $('status').textContent = '';
+        try {
+          const blob = await (await api(filename, secret)).blob();
+          if (secret !== token) return;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+          if (secret === token) $('status').textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+    login(token);
+  </script>
+</body>
+</html>
